@@ -7,11 +7,13 @@ try:
     from .extractors import extract_text
     from .models import AVAILABLE_MODELS, DEFAULT_MODEL
     from .pi_runner import (
+        CACHE_MODES,
+        DEFAULT_CACHE_MODE,
         DEFAULT_RESPONSE_MODE,
         RESPONSE_MODES,
         PiRequest,
         build_prompt,
-        run_pi_request,
+        resolve_pi_response,
         should_use_saved_response,
     )
     from .wildcards import WildcardInputs, compose_wildcard_prompt
@@ -19,11 +21,13 @@ except ImportError:  # Allows direct local imports during simple test runs.
     from extractors import extract_text
     from models import AVAILABLE_MODELS, DEFAULT_MODEL
     from pi_runner import (
+        CACHE_MODES,
+        DEFAULT_CACHE_MODE,
         DEFAULT_RESPONSE_MODE,
         RESPONSE_MODES,
         PiRequest,
         build_prompt,
-        run_pi_request,
+        resolve_pi_response,
         should_use_saved_response,
     )
     from wildcards import WildcardInputs, compose_wildcard_prompt
@@ -58,6 +62,7 @@ class PiLLMText:
                     },
                 ),
                 "response_mode": (RESPONSE_MODES, {"default": DEFAULT_RESPONSE_MODE}),
+                "cache_mode": (CACHE_MODES, {"default": DEFAULT_CACHE_MODE}),
                 "saved_response": (
                     "STRING",
                     {
@@ -94,6 +99,7 @@ class PiLLMText:
         model_name: str,
         prompt: str,
         response_mode: str,
+        cache_mode: str,
         saved_response: str,
         seed: int,
         timeout_seconds: int,
@@ -107,6 +113,7 @@ class PiLLMText:
             model_name,
             prompt,
             response_mode,
+            cache_mode,
             saved_response,
             seed,
             timeout_seconds,
@@ -119,6 +126,7 @@ class PiLLMText:
         model_name: str,
         prompt: str,
         response_mode: str,
+        cache_mode: str,
         saved_response: str,
         seed: int,
         timeout_seconds: int,
@@ -132,13 +140,15 @@ class PiLLMText:
         if not combined_prompt.strip():
             raise ValueError("Pi LLM Text requires a non-empty prompt or connected_text input.")
 
-        response = run_pi_request(
+        response = resolve_pi_response(
             PiRequest(
                 system_instruction=system_instruction,
                 model_name=model_name,
                 prompt=combined_prompt,
             ),
+            seed=seed,
             timeout_seconds=timeout_seconds,
+            cache_mode=cache_mode,
         )
         return (response,)
 

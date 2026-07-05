@@ -9,7 +9,8 @@ The main node runs the local `pi` CLI in print mode and returns the model respon
 - Call Pi from ComfyUI with a system instruction, model dropdown, and prompt.
 - Defaults to `minimax/MiniMax-M3`.
 - Text-only execution: tools, context files, and sessions are disabled for safer/predictable workflow behavior.
-- Reproducible saved-response mode for rerunning workflows loaded from image metadata.
+- Deterministic local response cache keyed by LLM inputs and seed for hands-off reproducible reruns.
+- Reproducible saved-response mode for portable/manual freezing when needed.
 - Cache-busting `seed` input so the same prompt can be regenerated.
 - Optional `run_every_queue` mode to force reruns.
 - Extract generated text from `<prompt>...</prompt>`, code fences, or custom delimiters.
@@ -73,11 +74,16 @@ Inputs:
 - `prompt`: what the LLM should do or produce. Type text here or connect a `STRING` output from another node.
 - `connected_text`: optional extra `STRING` input appended after `prompt` when non-empty.
 - `response_mode`:
-  - `use_saved_text_if_present` default: use `saved_response` when non-empty, otherwise call Pi.
-  - `call_pi`: always call Pi.
+  - `use_saved_text_if_present` default: use `saved_response` when non-empty, otherwise use the cache/Pi path.
+  - `call_pi`: ignore `saved_response` and use the cache/Pi path.
   - `use_saved_text`: always output `saved_response` and never call Pi.
-- `saved_response`: paste a previous LLM output here to make reruns reproducible from saved workflow/image metadata.
-- `seed`: cache-busting seed. Change it to rerun Pi for the same prompt.
+- `cache_mode`:
+  - `use_cache_or_generate` default: use the deterministic local cache when present, otherwise call Pi and save the response.
+  - `refresh_cache`: call Pi and overwrite the cached response for this input/seed.
+  - `cache_only`: only use the cache; error if missing.
+  - `disable_cache`: call Pi without reading or writing cache.
+- `saved_response`: optional manual/portable freeze text. Local cache handles normal reproducibility without using this.
+- `seed`: part of the cache key. Change it to intentionally get/cache a new response for the same prompt.
 - `timeout_seconds`: maximum time to wait for Pi.
 - `run_every_queue`: when enabled, disables ComfyUI caching for this node.
 
@@ -95,14 +101,13 @@ Tools, context files, and sessions are disabled so the node behaves like a text-
 
 #### Reproducible reruns
 
-ComfyUI image metadata preserves workflow widget/input values, but should not be relied on to preserve runtime node outputs. To make an LLM result reproducible when dragging a saved image back into ComfyUI:
+By default, `Pi LLM Text` uses a deterministic local cache. The cache key includes the system instruction, model name, combined prompt text, and seed. On first run it calls Pi and stores the response under `cache/<sha256>.txt`; on future runs with the same inputs and seed it returns that cached response without calling Pi.
 
-1. Run `Pi LLM Text` with `response_mode` set to `use_saved_text_if_present` or `call_pi`.
-2. Copy the generated output into `saved_response`.
-3. Leave `response_mode` on the default `use_saved_text_if_present`, or switch it to `use_saved_text`.
-4. Save/generate the image.
+This means dragging an image/workflow back into ComfyUI on the same machine should reproduce the same LLM text as long as the local cache directory is still present.
 
-On future reruns, the node will output `saved_response` instead of calling Pi, so the prompt text is stable.
+Use `cache_mode = refresh_cache` or change `seed` when you intentionally want a new LLM response. Use `cache_mode = disable_cache` if you always want live Pi calls.
+
+`saved_response` remains available for manual/portable freezing when you want the exact text stored in the workflow/image metadata itself.
 
 ### Pi Text Extractor
 
@@ -222,7 +227,7 @@ python -m unittest discover -s tests -v
 
 The ComfyUI node classes in `nodes.py` are intentionally thin adapters. Most behavior lives in pure modules:
 
-- `pi_runner.py`: prompt joining, saved-response mode decisions, Pi command construction, and Pi subprocess execution.
+- `pi_runner.py`: prompt joining, saved-response mode decisions, deterministic response caching, Pi command construction, and Pi subprocess execution.
 - `extractors.py`: XML/code-fence/delimiter extraction.
 - `wildcards.py`: deterministic seeded wildcard prompt composition.
 - `models.py`: static model dropdown data.
