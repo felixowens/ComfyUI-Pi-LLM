@@ -170,11 +170,19 @@ The dropdown is currently a static list generated from `pi --list-models` on the
 
 ## Development
 
-Run a syntax check from this repository:
+Run syntax checks and unit tests from this repository:
 
 ```bash
-python -m py_compile nodes.py __init__.py
+python -m py_compile __init__.py nodes.py models.py pi_runner.py extractors.py wildcards.py
+python -m unittest discover -s tests -v
 ```
+
+The ComfyUI node classes in `nodes.py` are intentionally thin adapters. Most behavior lives in pure modules:
+
+- `pi_runner.py`: prompt joining, Pi command construction, and Pi subprocess execution.
+- `extractors.py`: XML/code-fence/delimiter extraction.
+- `wildcards.py`: deterministic seeded wildcard prompt composition.
+- `models.py`: static model dropdown data.
 
 ## License
 
