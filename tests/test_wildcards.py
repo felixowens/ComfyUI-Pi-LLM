@@ -14,6 +14,8 @@ from wildcards import (
 
 def make_inputs(seed: int = 42, **overrides) -> WildcardInputs:
     values = dict(
+        prompt_template="",
+        negative_template="",
         base_prompt="portrait",
         base_negative="low quality",
         likes="bright eyes\nsmile\nfreckles",
@@ -69,6 +71,38 @@ class WildcardTests(unittest.TestCase):
         self.assertIn("seed: 42", result.selected)
         self.assertIn("likes:", result.selected)
         self.assertIn("dislikes:", result.selected)
+
+    def test_template_injects_selected_categories(self):
+        result = compose_wildcard_prompt(
+            make_inputs(
+                seed=42,
+                prompt_template="{base_prompt} of {characters}, wearing {clothing}, {styles}, {likes}, {extra}",
+                likes_count=1,
+                characters_count=1,
+                clothing_count=1,
+                styles_count=1,
+                extra_count=1,
+                dislikes_count=1,
+            )
+        )
+
+        self.assertIn("portrait of", result.positive_prompt)
+        self.assertIn("wearing", result.positive_prompt)
+        self.assertNotIn("{characters}", result.positive_prompt)
+        self.assertNotIn("{clothing}", result.positive_prompt)
+
+    def test_negative_template_injects_dislikes(self):
+        result = compose_wildcard_prompt(
+            make_inputs(
+                seed=42,
+                negative_template="avoid {dislikes}; base: {base_negative}",
+                dislikes_count=1,
+            )
+        )
+
+        self.assertIn("avoid", result.negative_prompt)
+        self.assertIn("base: low quality", result.negative_prompt)
+        self.assertNotIn("{dislikes}", result.negative_prompt)
 
     def test_newline_separator(self):
         result = compose_wildcard_prompt(

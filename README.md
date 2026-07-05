@@ -146,8 +146,10 @@ Seeded prompt composer for randomly injecting fragments into positive and negati
 
 Inputs:
 
-- `base_prompt`: always included at the start of the positive prompt.
-- `base_negative`: always included at the start of the negative prompt.
+- `prompt_template`: optional positive prompt template. Use placeholders like `{base_prompt}`, `{characters}`, `{clothing}`, `{styles}`, `{likes}`, `{extra}`, or `{all_positive}`. If blank, selected fragments are appended to `base_prompt`.
+- `negative_template`: optional negative prompt template. Use placeholders like `{base_negative}` and `{dislikes}`. If blank, selected dislikes are appended to `base_negative`.
+- `base_prompt`: base positive text. Used as `{base_prompt}` in templates, or included at the start when `prompt_template` is blank.
+- `base_negative`: base negative text. Used as `{base_negative}` in templates, or included at the start when `negative_template` is blank.
 - `likes`: positive fragments you like, one per line.
 - `dislikes`: negative fragments, one per line.
 - `characters`: character/subject options, one per line.
@@ -160,10 +162,34 @@ Inputs:
 - `dedupe`: removes duplicate fragments while preserving order.
 - `shuffle_positive`: shuffles the selected positive fragments while keeping `base_prompt` first.
 
+Template placeholders:
+
+- `{base_prompt}`
+- `{base_negative}`
+- `{likes}`
+- `{dislikes}`
+- `{characters}`
+- `{clothing}`
+- `{styles}`
+- `{extra}`
+- `{all_positive}`: base prompt plus all selected positive categories.
+
+Example `prompt_template`:
+
+```text
+{base_prompt} of {characters}, wearing {clothing}, {styles}, {likes}, {extra}
+```
+
+Example `negative_template`:
+
+```text
+{base_negative}, {dislikes}
+```
+
 Outputs:
 
 - `positive_prompt`: composed positive prompt.
-- `negative_prompt`: composed negative prompt from `base_negative` plus selected dislikes.
+- `negative_prompt`: composed negative prompt from template/base negative plus selected dislikes.
 - `selected`: readable debug text showing exactly what was selected for the seed.
 
 List parsing rules:

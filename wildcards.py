@@ -6,6 +6,8 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class WildcardInputs:
+    prompt_template: str
+    negative_template: str
     base_prompt: str
     base_negative: str
     likes: str
@@ -64,6 +66,41 @@ def compose_wildcard_prompt(inputs: WildcardInputs) -> WildcardResult:
         positive_parts = base_positive_parts + generated_parts
 
     joiner = separator_for(inputs.separator)
+
+    if inputs.prompt_template.strip():
+        positive_prompt = render_template(
+            inputs.prompt_template,
+            joiner=joiner,
+            base_prompt=base_positive_parts,
+            base_negative=clean_base(inputs.base_negative),
+            likes=selected_likes,
+            dislikes=selected_dislikes,
+            characters=selected_characters,
+            clothing=selected_clothing,
+            styles=selected_styles,
+            extra=selected_extra,
+            all_positive=positive_parts,
+        )
+    else:
+        positive_prompt = joiner.join(positive_parts)
+
+    if inputs.negative_template.strip():
+        negative_prompt = render_template(
+            inputs.negative_template,
+            joiner=joiner,
+            base_prompt=base_positive_parts,
+            base_negative=clean_base(inputs.base_negative),
+            likes=selected_likes,
+            dislikes=selected_dislikes,
+            characters=selected_characters,
+            clothing=selected_clothing,
+            styles=selected_styles,
+            extra=selected_extra,
+            all_positive=positive_parts,
+        )
+    else:
+        negative_prompt = joiner.join(negative_parts)
+
     selected = format_selected(
         seed=inputs.seed,
         likes=selected_likes,
@@ -75,10 +112,17 @@ def compose_wildcard_prompt(inputs: WildcardInputs) -> WildcardResult:
     )
 
     return WildcardResult(
-        positive_prompt=joiner.join(positive_parts),
-        negative_prompt=joiner.join(negative_parts),
+        positive_prompt=positive_prompt,
+        negative_prompt=negative_prompt,
         selected=selected,
     )
+
+
+def render_template(template: str, joiner: str, **values: list[str]) -> str:
+    rendered = template.strip()
+    for name, items in values.items():
+        rendered = rendered.replace("{" + name + "}", joiner.join(items))
+    return rendered
 
 
 def clean_base(text: str) -> list[str]:

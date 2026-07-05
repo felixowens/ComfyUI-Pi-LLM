@@ -247,12 +247,28 @@ class PiWildcardPrompt:
     def INPUT_TYPES(cls):
         return {
             "required": {
+                "prompt_template": (
+                    "STRING",
+                    {
+                        "multiline": True,
+                        "default": "",
+                        "placeholder": "Optional template, e.g. {base_prompt}, {characters}, wearing {clothing}, {styles}. Blank = append selected fragments.",
+                    },
+                ),
+                "negative_template": (
+                    "STRING",
+                    {
+                        "multiline": True,
+                        "default": "",
+                        "placeholder": "Optional negative template, e.g. {base_negative}, {dislikes}. Blank = append selected dislikes.",
+                    },
+                ),
                 "base_prompt": (
                     "STRING",
                     {
                         "multiline": True,
                         "default": "",
-                        "placeholder": "Always included at the start of the positive prompt.",
+                        "placeholder": "Base positive text. Use {base_prompt} in prompt_template, or leave template blank to prepend it.",
                     },
                 ),
                 "base_negative": (
@@ -329,6 +345,8 @@ class PiWildcardPrompt:
 
     def compose(
         self,
+        prompt_template: str,
+        negative_template: str,
         base_prompt: str,
         base_negative: str,
         likes: str,
@@ -350,6 +368,8 @@ class PiWildcardPrompt:
     ):
         result = compose_wildcard_prompt(
             WildcardInputs(
+                prompt_template=prompt_template,
+                negative_template=negative_template,
                 base_prompt=base_prompt,
                 base_negative=base_negative,
                 likes=likes,
