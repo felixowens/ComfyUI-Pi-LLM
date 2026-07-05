@@ -2,7 +2,15 @@ from __future__ import annotations
 
 import unittest
 
-from pi_runner import PiRequest, build_pi_command, build_prompt
+from pi_runner import (
+    RESPONSE_MODE_CALL_PI,
+    RESPONSE_MODE_USE_SAVED_TEXT,
+    RESPONSE_MODE_USE_SAVED_TEXT_IF_PRESENT,
+    PiRequest,
+    build_pi_command,
+    build_prompt,
+    should_use_saved_response,
+)
 
 
 class PiRunnerTests(unittest.TestCase):
@@ -41,6 +49,16 @@ class PiRunnerTests(unittest.TestCase):
 
         self.assertNotIn("--model", command)
         self.assertEqual(command[-1], "prompt")
+
+    def test_saved_response_modes(self):
+        self.assertFalse(should_use_saved_response(RESPONSE_MODE_CALL_PI, "saved"))
+        self.assertTrue(should_use_saved_response(RESPONSE_MODE_USE_SAVED_TEXT, ""))
+        self.assertFalse(
+            should_use_saved_response(RESPONSE_MODE_USE_SAVED_TEXT_IF_PRESENT, "  ")
+        )
+        self.assertTrue(
+            should_use_saved_response(RESPONSE_MODE_USE_SAVED_TEXT_IF_PRESENT, "saved")
+        )
 
 
 if __name__ == "__main__":

@@ -12,6 +12,26 @@ class PiRequest:
     prompt: str
 
 
+RESPONSE_MODE_CALL_PI = "call_pi"
+RESPONSE_MODE_USE_SAVED_TEXT = "use_saved_text"
+RESPONSE_MODE_USE_SAVED_TEXT_IF_PRESENT = "use_saved_text_if_present"
+RESPONSE_MODES = [
+    RESPONSE_MODE_USE_SAVED_TEXT_IF_PRESENT,
+    RESPONSE_MODE_CALL_PI,
+    RESPONSE_MODE_USE_SAVED_TEXT,
+]
+DEFAULT_RESPONSE_MODE = RESPONSE_MODE_USE_SAVED_TEXT_IF_PRESENT
+
+
+def should_use_saved_response(response_mode: str, saved_response: str) -> bool:
+    """Return whether the LLM node should skip Pi and output saved text."""
+    if response_mode == RESPONSE_MODE_USE_SAVED_TEXT:
+        return True
+    if response_mode == RESPONSE_MODE_USE_SAVED_TEXT_IF_PRESENT:
+        return bool(saved_response.strip())
+    return False
+
+
 def build_prompt(*parts: str) -> str:
     """Join non-empty prompt fragments with a blank line."""
     non_empty_parts = [part.strip() for part in parts if part and part.strip()]

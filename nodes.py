@@ -6,12 +6,26 @@ from typing import ClassVar
 try:
     from .extractors import extract_text
     from .models import AVAILABLE_MODELS, DEFAULT_MODEL
-    from .pi_runner import PiRequest, build_prompt, run_pi_request
+    from .pi_runner import (
+        DEFAULT_RESPONSE_MODE,
+        RESPONSE_MODES,
+        PiRequest,
+        build_prompt,
+        run_pi_request,
+        should_use_saved_response,
+    )
     from .wildcards import WildcardInputs, compose_wildcard_prompt
 except ImportError:  # Allows direct local imports during simple test runs.
     from extractors import extract_text
     from models import AVAILABLE_MODELS, DEFAULT_MODEL
-    from pi_runner import PiRequest, build_prompt, run_pi_request
+    from pi_runner import (
+        DEFAULT_RESPONSE_MODE,
+        RESPONSE_MODES,
+        PiRequest,
+        build_prompt,
+        run_pi_request,
+        should_use_saved_response,
+    )
     from wildcards import WildcardInputs, compose_wildcard_prompt
 
 
@@ -43,6 +57,15 @@ class PiLLMText:
                         "placeholder": "What should the LLM do or produce? Include any input text here.",
                     },
                 ),
+                "response_mode": (RESPONSE_MODES, {"default": DEFAULT_RESPONSE_MODE}),
+                "saved_response": (
+                    "STRING",
+                    {
+                        "multiline": True,
+                        "default": "",
+                        "placeholder": "Paste a previous LLM output here for reproducible reruns. Default mode uses this when non-empty.",
+                    },
+                ),
                 "seed": (
                     "INT",
                     {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF, "step": 1},
@@ -70,6 +93,8 @@ class PiLLMText:
         system_instruction: str,
         model_name: str,
         prompt: str,
+        response_mode: str,
+        saved_response: str,
         seed: int,
         timeout_seconds: int,
         run_every_queue: bool,
@@ -81,6 +106,8 @@ class PiLLMText:
             system_instruction,
             model_name,
             prompt,
+            response_mode,
+            saved_response,
             seed,
             timeout_seconds,
             connected_text,
@@ -91,11 +118,16 @@ class PiLLMText:
         system_instruction: str,
         model_name: str,
         prompt: str,
+        response_mode: str,
+        saved_response: str,
         seed: int,
         timeout_seconds: int,
         run_every_queue: bool,
         connected_text: str = "",
     ):
+        if should_use_saved_response(response_mode, saved_response):
+            return (saved_response.strip(),)
+
         combined_prompt = build_prompt(prompt, connected_text)
         if not combined_prompt.strip():
             raise ValueError("Pi LLM Text requires a non-empty prompt or connected_text input.")

@@ -9,6 +9,7 @@ The main node runs the local `pi` CLI in print mode and returns the model respon
 - Call Pi from ComfyUI with a system instruction, model dropdown, and prompt.
 - Defaults to `minimax/MiniMax-M3`.
 - Text-only execution: tools, context files, and sessions are disabled for safer/predictable workflow behavior.
+- Reproducible saved-response mode for rerunning workflows loaded from image metadata.
 - Cache-busting `seed` input so the same prompt can be regenerated.
 - Optional `run_every_queue` mode to force reruns.
 - Extract generated text from `<prompt>...</prompt>`, code fences, or custom delimiters.
@@ -71,6 +72,11 @@ Inputs:
 - `model_name`: Pi model selector dropdown, passed via `--model`. Defaults to `minimax/MiniMax-M3`.
 - `prompt`: what the LLM should do or produce. Type text here or connect a `STRING` output from another node.
 - `connected_text`: optional extra `STRING` input appended after `prompt` when non-empty.
+- `response_mode`:
+  - `use_saved_text_if_present` default: use `saved_response` when non-empty, otherwise call Pi.
+  - `call_pi`: always call Pi.
+  - `use_saved_text`: always output `saved_response` and never call Pi.
+- `saved_response`: paste a previous LLM output here to make reruns reproducible from saved workflow/image metadata.
 - `seed`: cache-busting seed. Change it to rerun Pi for the same prompt.
 - `timeout_seconds`: maximum time to wait for Pi.
 - `run_every_queue`: when enabled, disables ComfyUI caching for this node.
@@ -86,6 +92,17 @@ pi -p --no-tools --no-context-files --no-session --system-prompt "..." --model "
 ```
 
 Tools, context files, and sessions are disabled so the node behaves like a text-only LLM call and avoids file/system side effects. The `seed` is used for ComfyUI cache invalidation; Pi does not currently receive it as a model sampling seed.
+
+#### Reproducible reruns
+
+ComfyUI image metadata preserves workflow widget/input values, but should not be relied on to preserve runtime node outputs. To make an LLM result reproducible when dragging a saved image back into ComfyUI:
+
+1. Run `Pi LLM Text` with `response_mode` set to `use_saved_text_if_present` or `call_pi`.
+2. Copy the generated output into `saved_response`.
+3. Leave `response_mode` on the default `use_saved_text_if_present`, or switch it to `use_saved_text`.
+4. Save/generate the image.
+
+On future reruns, the node will output `saved_response` instead of calling Pi, so the prompt text is stable.
 
 ### Pi Text Extractor
 
@@ -179,7 +196,7 @@ python -m unittest discover -s tests -v
 
 The ComfyUI node classes in `nodes.py` are intentionally thin adapters. Most behavior lives in pure modules:
 
-- `pi_runner.py`: prompt joining, Pi command construction, and Pi subprocess execution.
+- `pi_runner.py`: prompt joining, saved-response mode decisions, Pi command construction, and Pi subprocess execution.
 - `extractors.py`: XML/code-fence/delimiter extraction.
 - `wildcards.py`: deterministic seeded wildcard prompt composition.
 - `models.py`: static model dropdown data.
