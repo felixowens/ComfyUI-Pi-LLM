@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import random
 import re
 import subprocess
 import time
@@ -329,12 +330,222 @@ class PiTextExtractor:
         return cls._choose_match(matches, occurrence)
 
 
+class PiWildcardPrompt:
+    """Seeded prompt composer for randomly selecting wildcard fragments."""
+
+    CATEGORY = "Pi"
+    FUNCTION = "compose"
+    RETURN_TYPES: ClassVar[tuple[str, ...]] = ("STRING", "STRING", "STRING")
+    RETURN_NAMES: ClassVar[tuple[str, ...]] = (
+        "positive_prompt",
+        "negative_prompt",
+        "selected",
+    )
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "base_prompt": (
+                    "STRING",
+                    {
+                        "multiline": True,
+                        "default": "",
+                        "placeholder": "Always included at the start of the positive prompt.",
+                    },
+                ),
+                "base_negative": (
+                    "STRING",
+                    {
+                        "multiline": True,
+                        "default": "",
+                        "placeholder": "Always included at the start of the negative prompt.",
+                    },
+                ),
+                "likes": (
+                    "STRING",
+                    {
+                        "multiline": True,
+                        "default": "",
+                        "placeholder": "One liked prompt fragment per line. # comments ignored.",
+                    },
+                ),
+                "dislikes": (
+                    "STRING",
+                    {
+                        "multiline": True,
+                        "default": "",
+                        "placeholder": "One negative prompt fragment per line. # comments ignored.",
+                    },
+                ),
+                "characters": (
+                    "STRING",
+                    {
+                        "multiline": True,
+                        "default": "",
+                        "placeholder": "One character/subject option per line.",
+                    },
+                ),
+                "clothing": (
+                    "STRING",
+                    {
+                        "multiline": True,
+                        "default": "",
+                        "placeholder": "One clothing/accessory option per line.",
+                    },
+                ),
+                "styles": (
+                    "STRING",
+                    {
+                        "multiline": True,
+                        "default": "",
+                        "placeholder": "One visual/style option per line.",
+                    },
+                ),
+                "extra": (
+                    "STRING",
+                    {
+                        "multiline": True,
+                        "default": "",
+                        "placeholder": "Any other prompt fragments, one per line.",
+                    },
+                ),
+                "seed": (
+                    "INT",
+                    {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF, "step": 1},
+                ),
+                "likes_count": ("INT", {"default": 1, "min": 0, "max": 64, "step": 1}),
+                "dislikes_count": ("INT", {"default": 1, "min": 0, "max": 64, "step": 1}),
+                "characters_count": ("INT", {"default": 1, "min": 0, "max": 64, "step": 1}),
+                "clothing_count": ("INT", {"default": 1, "min": 0, "max": 64, "step": 1}),
+                "styles_count": ("INT", {"default": 1, "min": 0, "max": 64, "step": 1}),
+                "extra_count": ("INT", {"default": 1, "min": 0, "max": 64, "step": 1}),
+                "separator": (["comma", "space", "newline"], {"default": "comma"}),
+                "dedupe": ("BOOLEAN", {"default": True}),
+                "shuffle_positive": ("BOOLEAN", {"default": False}),
+            }
+        }
+
+    def compose(
+        self,
+        base_prompt: str,
+        base_negative: str,
+        likes: str,
+        dislikes: str,
+        characters: str,
+        clothing: str,
+        styles: str,
+        extra: str,
+        seed: int,
+        likes_count: int,
+        dislikes_count: int,
+        characters_count: int,
+        clothing_count: int,
+        styles_count: int,
+        extra_count: int,
+        separator: str,
+        dedupe: bool,
+        shuffle_positive: bool,
+    ):
+        rng = random.Random(seed)
+
+        selected_likes = self._sample_lines(rng, likes, likes_count)
+        selected_dislikes = self._sample_lines(rng, dislikes, dislikes_count)
+        selected_characters = self._sample_lines(rng, characters, characters_count)
+        selected_clothing = self._sample_lines(rng, clothing, clothing_count)
+        selected_styles = self._sample_lines(rng, styles, styles_count)
+        selected_extra = self._sample_lines(rng, extra, extra_count)
+
+        positive_parts = self._clean_base(base_prompt) + selected_likes + selected_characters + selected_clothing + selected_styles + selected_extra
+        negative_parts = self._clean_base(base_negative) + selected_dislikes
+
+        if dedupe:
+            positive_parts = self._dedupe_preserve_order(positive_parts)
+            negative_parts = self._dedupe_preserve_order(negative_parts)
+
+        if shuffle_positive:
+            base_parts = self._clean_base(base_prompt)
+            generated_parts = positive_parts[len(base_parts) :]
+            rng.shuffle(generated_parts)
+            positive_parts = base_parts + generated_parts
+
+        joiner = self._separator(separator)
+        positive_prompt = joiner.join(positive_parts)
+        negative_prompt = joiner.join(negative_parts)
+        selected = self._format_selected(
+            seed=seed,
+            likes=selected_likes,
+            dislikes=selected_dislikes,
+            characters=selected_characters,
+            clothing=selected_clothing,
+            styles=selected_styles,
+            extra=selected_extra,
+        )
+
+        return (positive_prompt, negative_prompt, selected)
+
+    @staticmethod
+    def _clean_base(text: str) -> list[str]:
+        cleaned = text.strip()
+        return [cleaned] if cleaned else []
+
+    @classmethod
+    def _sample_lines(cls, rng: random.Random, text: str, count: int) -> list[str]:
+        choices = cls._parse_lines(text)
+        if count <= 0 or not choices:
+            return []
+        return rng.sample(choices, k=min(count, len(choices)))
+
+    @staticmethod
+    def _parse_lines(text: str) -> list[str]:
+        lines = []
+        for raw_line in text.splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            lines.append(line)
+        return lines
+
+    @staticmethod
+    def _dedupe_preserve_order(items: list[str]) -> list[str]:
+        seen = set()
+        deduped = []
+        for item in items:
+            key = item.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(item)
+        return deduped
+
+    @staticmethod
+    def _separator(separator: str) -> str:
+        if separator == "space":
+            return " "
+        if separator == "newline":
+            return "\n"
+        return ", "
+
+    @staticmethod
+    def _format_selected(seed: int, **categories: list[str]) -> str:
+        sections = [f"seed: {seed}"]
+        for name, items in categories.items():
+            sections.append(f"\n{name}:")
+            if items:
+                sections.extend(f"- {item}" for item in items)
+            else:
+                sections.append("- <none>")
+        return "\n".join(sections)
+
+
 NODE_CLASS_MAPPINGS = {
     "PiLLMText": PiLLMText,
     "PiTextExtractor": PiTextExtractor,
+    "PiWildcardPrompt": PiWildcardPrompt,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "PiLLMText": "Pi LLM Text",
     "PiTextExtractor": "Pi Text Extractor",
+    "PiWildcardPrompt": "Pi Wildcard Prompt",
 }

@@ -12,6 +12,7 @@ The main node runs the local `pi` CLI in print mode and returns the model respon
 - Cache-busting `seed` input so the same prompt can be regenerated.
 - Optional `run_every_queue` mode to force reruns.
 - Extract generated text from `<prompt>...</prompt>`, code fences, or custom delimiters.
+- Compose seeded wildcard prompts from inline lists of likes, dislikes, characters, clothing, styles, and extras.
 
 ## Requirements
 
@@ -121,6 +122,47 @@ or:
 ````text
 Return only the final prompt in a ```text code fence.
 ````
+
+### Pi Wildcard Prompt
+
+Seeded prompt composer for randomly injecting fragments into positive and negative prompts.
+
+Inputs:
+
+- `base_prompt`: always included at the start of the positive prompt.
+- `base_negative`: always included at the start of the negative prompt.
+- `likes`: positive fragments you like, one per line.
+- `dislikes`: negative fragments, one per line.
+- `characters`: character/subject options, one per line.
+- `clothing`: clothing/accessory options, one per line.
+- `styles`: visual/style options, one per line.
+- `extra`: any other fragments, one per line.
+- `seed`: deterministic random seed. Same inputs + same seed produce the same selections.
+- `*_count`: how many entries to select from each category. Counts larger than the list are clamped safely.
+- `separator`: `comma`, `space`, or `newline`.
+- `dedupe`: removes duplicate fragments while preserving order.
+- `shuffle_positive`: shuffles the selected positive fragments while keeping `base_prompt` first.
+
+Outputs:
+
+- `positive_prompt`: composed positive prompt.
+- `negative_prompt`: composed negative prompt from `base_negative` plus selected dislikes.
+- `selected`: readable debug text showing exactly what was selected for the seed.
+
+List parsing rules:
+
+- Blank lines are ignored.
+- Lines starting with `#` are ignored as comments.
+
+Example `styles` list:
+
+```text
+# lighting/style options
+cinematic lighting
+soft watercolor illustration
+retro anime screencap
+35mm film still
+```
 
 ## Model list
 
