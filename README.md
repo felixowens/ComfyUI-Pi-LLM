@@ -1,15 +1,15 @@
 # ComfyUI Pi LLM
 
-ComfyUI custom nodes for calling [Pi](https://pi.dev) as a text-only LLM from a workflow.
+ComfyUI custom nodes for calling [Pi](https://pi.dev) as a text and optional image LLM from a workflow.
 
-The main node runs the local `pi` CLI in print mode and returns the model response as a ComfyUI `STRING`. A companion extractor node helps remove common LLM wrapper text, such as XML tags or Markdown code fences.
+The main node runs the local `pi` CLI in print mode and returns the model response as a ComfyUI `STRING`. It can optionally pass connected ComfyUI images to vision-capable Pi models. A companion extractor node helps remove common LLM wrapper text, such as XML tags or Markdown code fences.
 
 ## Features
 
-- Call Pi from ComfyUI with a system instruction, model dropdown, and prompt.
+- Call Pi from ComfyUI with a system instruction, model dropdown, prompt, and optional image input.
 - Defaults to `minimax/MiniMax-M3`.
 - Includes OpenRouter dropdown options for Grok, Kimi, GLM, and Gemini Flash/Flash Lite models.
-- Text-only execution: tools, context files, and sessions are disabled for safer/predictable workflow behavior.
+- LLM-only execution: tools, context files, and sessions are disabled for safer/predictable workflow behavior.
 - Deterministic local response cache keyed by LLM inputs and seed for hands-off reproducible reruns.
 - Reproducible saved-response mode for portable/manual freezing when needed.
 - Cache-busting `seed` input so the same prompt can be regenerated.
@@ -74,6 +74,7 @@ Inputs:
 - `model_name`: Pi model selector dropdown, passed via `--model`. Defaults to `minimax/MiniMax-M3`.
 - `prompt`: what the LLM should do or produce. Type text here or connect a `STRING` output from another node.
 - `connected_text`: optional extra `STRING` input appended after `prompt` when non-empty.
+- `image`: optional ComfyUI `IMAGE` input passed to Pi as a temporary PNG attachment. Use a vision-capable model.
 - `response_mode`:
   - `use_saved_text_if_present` default: use `saved_response` when non-empty, otherwise use the cache/Pi path.
   - `call_pi`: ignore `saved_response` and use the cache/Pi path.
@@ -96,13 +97,16 @@ Behavior:
 
 ```bash
 pi -p --no-tools --no-context-files --no-session --system-prompt "..." --model "minimax/MiniMax-M3" "...prompt..."
+
+# With optional image input, the node writes temporary PNGs and passes them before the prompt:
+pi -p --no-tools --no-context-files --no-session --system-prompt "..." --model "openrouter/google/gemini-2.5-flash" @/tmp/image-0.png "...prompt..."
 ```
 
-Tools, context files, and sessions are disabled so the node behaves like a text-only LLM call and avoids file/system side effects. The `seed` is used for ComfyUI cache invalidation; Pi does not currently receive it as a model sampling seed.
+Tools, context files, and sessions are disabled so the node behaves like a text/image LLM call and avoids file/system side effects. The `seed` is used for ComfyUI cache invalidation; Pi does not currently receive it as a model sampling seed.
 
 #### Reproducible reruns
 
-By default, `Pi LLM Text` uses a deterministic local cache. The cache key includes the system instruction, model name, combined prompt text, and seed. On first run it calls Pi and stores the response under `cache/<sha256>.txt`; on future runs with the same inputs and seed it returns that cached response without calling Pi.
+By default, `Pi LLM Text` uses a deterministic local cache. The cache key includes the system instruction, model name, combined prompt text, optional image content digests, and seed. On first run it calls Pi and stores the response under `cache/<sha256>.txt`; on future runs with the same inputs and seed it returns that cached response without calling Pi.
 
 This means dragging an image/workflow back into ComfyUI on the same machine should reproduce the same LLM text as long as the local cache directory is still present.
 
@@ -231,6 +235,7 @@ python -m unittest discover -s tests -v
 The ComfyUI node classes in `nodes.py` are intentionally thin adapters. Most behavior lives in pure modules:
 
 - `pi_runner.py`: prompt joining, saved-response mode decisions, deterministic response caching, Pi command construction, and Pi subprocess execution.
+- `image_inputs.py`: conversion of optional ComfyUI `IMAGE` inputs into temporary PNG attachments and cache digests.
 - `extractors.py`: XML/code-fence/delimiter extraction.
 - `wildcards.py`: deterministic seeded wildcard prompt composition.
 - `models.py`: static model dropdown data.

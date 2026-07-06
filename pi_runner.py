@@ -4,7 +4,7 @@ import hashlib
 import json
 import os
 import subprocess
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -13,6 +13,8 @@ class PiRequest:
     system_instruction: str
     model_name: str
     prompt: str
+    image_paths: tuple[str, ...] = ()
+    image_digests: tuple[str, ...] = ()
 
 
 RESPONSE_MODE_CALL_PI = "call_pi"
@@ -53,7 +55,12 @@ def build_cache_key(request: PiRequest, seed: int) -> str:
     """Build a stable cache key from all inputs that affect the LLM request."""
     payload = {
         "schema_version": CACHE_SCHEMA_VERSION,
-        "request": asdict(request),
+        "request": {
+            "system_instruction": request.system_instruction,
+            "model_name": request.model_name,
+            "prompt": request.prompt,
+            "image_digests": request.image_digests,
+        },
         "seed": seed,
     }
     encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
@@ -124,6 +131,7 @@ def build_pi_command(request: PiRequest) -> list[str]:
     if request.model_name.strip():
         command.extend(["--model", request.model_name.strip()])
 
+    command.extend(f"@{image_path}" for image_path in request.image_paths)
     command.append(request.prompt)
     return command
 

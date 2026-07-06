@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import tempfile
 import time
+from pathlib import Path
 from typing import ClassVar
 
 try:
     from .extractors import extract_text
+    from .image_inputs import comfy_image_to_png_bytes, image_digests, write_pngs
     from .models import AVAILABLE_MODELS, DEFAULT_MODEL
     from .pi_runner import (
         CACHE_MODES,
@@ -19,6 +22,7 @@ try:
     from .wildcards import WildcardInputs, compose_wildcard_prompt
 except ImportError:  # Allows direct local imports during simple test runs.
     from extractors import extract_text
+    from image_inputs import comfy_image_to_png_bytes, image_digests, write_pngs
     from models import AVAILABLE_MODELS, DEFAULT_MODEL
     from pi_runner import (
         CACHE_MODES,
@@ -89,6 +93,7 @@ class PiLLMText:
                         "placeholder": "Optional extra STRING input appended after prompt.",
                     },
                 ),
+                "image": ("IMAGE",),
             },
         }
 
@@ -105,6 +110,7 @@ class PiLLMText:
         timeout_seconds: int,
         run_every_queue: bool,
         connected_text: str = "",
+        image=None,
     ):
         if run_every_queue:
             return time.time()
@@ -118,6 +124,7 @@ class PiLLMText:
             seed,
             timeout_seconds,
             connected_text,
+            image_digests(comfy_image_to_png_bytes(image)),
         )
 
     def generate(
@@ -132,6 +139,7 @@ class PiLLMText:
         timeout_seconds: int,
         run_every_queue: bool,
         connected_text: str = "",
+        image=None,
     ):
         if should_use_saved_response(response_mode, saved_response):
             return (saved_response.strip(),)
@@ -140,16 +148,35 @@ class PiLLMText:
         if not combined_prompt.strip():
             raise ValueError("Pi LLM Text requires a non-empty prompt or connected_text input.")
 
-        response = resolve_pi_response(
-            PiRequest(
-                system_instruction=system_instruction,
-                model_name=model_name,
-                prompt=combined_prompt,
-            ),
-            seed=seed,
-            timeout_seconds=timeout_seconds,
-            cache_mode=cache_mode,
-        )
+        image_pngs = comfy_image_to_png_bytes(image)
+        digests = image_digests(image_pngs)
+
+        if image_pngs:
+            with tempfile.TemporaryDirectory(prefix="comfyui-pi-llm-") as image_dir:
+                image_paths = write_pngs(image_pngs, Path(image_dir))
+                response = resolve_pi_response(
+                    PiRequest(
+                        system_instruction=system_instruction,
+                        model_name=model_name,
+                        prompt=combined_prompt,
+                        image_paths=image_paths,
+                        image_digests=digests,
+                    ),
+                    seed=seed,
+                    timeout_seconds=timeout_seconds,
+                    cache_mode=cache_mode,
+                )
+        else:
+            response = resolve_pi_response(
+                PiRequest(
+                    system_instruction=system_instruction,
+                    model_name=model_name,
+                    prompt=combined_prompt,
+                ),
+                seed=seed,
+                timeout_seconds=timeout_seconds,
+                cache_mode=cache_mode,
+            )
         return (response,)
 
 

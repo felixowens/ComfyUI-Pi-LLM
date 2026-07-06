@@ -60,6 +60,18 @@ class PiRunnerTests(unittest.TestCase):
         self.assertNotIn("--model", command)
         self.assertEqual(command[-1], "prompt")
 
+    def test_build_pi_command_adds_image_paths_before_prompt(self):
+        command = build_pi_command(
+            PiRequest(
+                system_instruction="sys",
+                model_name="model",
+                prompt="describe",
+                image_paths=("/tmp/image.png",),
+            )
+        )
+
+        self.assertEqual(command[-2:], ["@/tmp/image.png", "describe"])
+
     def test_saved_response_modes(self):
         self.assertFalse(should_use_saved_response(RESPONSE_MODE_CALL_PI, "saved"))
         self.assertTrue(should_use_saved_response(RESPONSE_MODE_USE_SAVED_TEXT, ""))
@@ -75,6 +87,32 @@ class PiRunnerTests(unittest.TestCase):
 
         self.assertEqual(build_cache_key(request, seed=1), build_cache_key(request, seed=1))
         self.assertNotEqual(build_cache_key(request, seed=1), build_cache_key(request, seed=2))
+
+    def test_build_cache_key_uses_image_digests_not_temp_paths(self):
+        first = PiRequest(
+            system_instruction="sys",
+            model_name="model",
+            prompt="prompt",
+            image_paths=("/tmp/first.png",),
+            image_digests=("digest",),
+        )
+        second = PiRequest(
+            system_instruction="sys",
+            model_name="model",
+            prompt="prompt",
+            image_paths=("/tmp/second.png",),
+            image_digests=("digest",),
+        )
+        different_image = PiRequest(
+            system_instruction="sys",
+            model_name="model",
+            prompt="prompt",
+            image_paths=("/tmp/first.png",),
+            image_digests=("other",),
+        )
+
+        self.assertEqual(build_cache_key(first, seed=1), build_cache_key(second, seed=1))
+        self.assertNotEqual(build_cache_key(first, seed=1), build_cache_key(different_image, seed=1))
 
     def test_resolve_pi_response_writes_and_reads_cache(self):
         request = PiRequest(system_instruction="sys", model_name="model", prompt="prompt")
