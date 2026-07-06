@@ -8,6 +8,7 @@ The main node runs the local `pi` CLI in print mode and returns the model respon
 
 - Call Pi from ComfyUI with a system instruction, model dropdown, and prompt.
 - Defaults to `minimax/MiniMax-M3`.
+- Includes OpenRouter dropdown options for Grok, Kimi, GLM, and Gemini Flash/Flash Lite models.
 - Text-only execution: tools, context files, and sessions are disabled for safer/predictable workflow behavior.
 - Deterministic local response cache keyed by LLM inputs and seed for hands-off reproducible reruns.
 - Reproducible saved-response mode for portable/manual freezing when needed.
@@ -214,7 +215,9 @@ retro anime screencap
 
 ## Model list
 
-The dropdown is currently a static list generated from `pi --list-models` on the original development machine. If your Pi installation has different model access, edit `nodes.py` and update the `model_name` list.
+The dropdown is currently a static list generated from `pi --list-models` on the original development machine. It includes selected OpenRouter models such as `openrouter/x-ai/grok-4.3`, `openrouter/~moonshotai/kimi-latest`, `openrouter/z-ai/glm-4.7-flash`, `openrouter/~google/gemini-flash-latest`, and `openrouter/google/gemini-2.5-flash-lite`.
+
+If your Pi installation has different model access, edit `models.py` and update `AVAILABLE_MODELS`.
 
 ## Development
 
